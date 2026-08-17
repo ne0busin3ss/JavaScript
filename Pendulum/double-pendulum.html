@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#071426">
+<title>Double Pendulum — chaotic dynamics lab</title>
+<style>
+  :root{
+    --ink:#071426;
+    --ink-2:#0d2440;
+    --ink-3:#12325a;
+    --grid:rgba(122,183,232,.13);
+    --grid-strong:rgba(122,183,232,.28);
+    --chalk:#e7f1fb;
+    --muted:#8db2d4;
+    --cyan:#6fd3ff;
+    --amber:#ff9e4d;
+    --rose:#ff6b8a;
+    --line:rgba(122,183,232,.22);
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --disp:"Avenir Next Condensed","Helvetica Neue Condensed",Oswald,"Arial Narrow",system-ui,sans-serif;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ink);
+    background-image:
+      linear-gradient(var(--grid) 1px,transparent 1px),
+      linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--chalk);
+    font-family:var(--mono);
+    font-size:13px;
+    line-height:1.45;
+    -webkit-text-size-adjust:100%;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+    padding:0 0 env(safe-area-inset-bottom);
+  }
+
+  .wrap{max-width:1200px;margin:0 auto;padding:18px 14px 28px}
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    gap:12px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);
+    padding-bottom:10px;margin-bottom:16px;
+  }
+  .eyebrow{
+    font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 2px;
+  }
+  h1{
+    font-family:var(--disp);
+    font-size:clamp(30px,7vw,52px);
+    font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    margin:0;line-height:.92;
+  }
+  h1 .thin{color:var(--cyan);font-weight:400}
+  .stamp{
+    font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);text-align:right;
+  }
+  .stamp b{color:var(--chalk);font-weight:600}
+
+  /* ---------- layout ---------- */
+  .main{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+  @media(min-width:920px){
+    .main{grid-template-columns:minmax(0,1fr) 330px;align-items:start}
+    .stage-col{min-width:0}
+  }
+
+  .panel{
+    background:linear-gradient(180deg,rgba(13,36,64,.86),rgba(7,20,38,.86));
+    border:1px solid var(--line);
+    border-radius:3px;
+  }
+
+  /* ---------- stage ---------- */
+  .stage{position:relative;overflow:hidden}
+  #stage{display:block;width:100%;height:auto;touch-action:none;cursor:grab}
+  #stage.grabbing{cursor:grabbing}
+  .hud{
+    position:absolute;left:10px;top:9px;
+    font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--muted);pointer-events:none;
+  }
+  .hud .fps{color:var(--cyan)}
+  .hint{
+    position:absolute;right:10px;bottom:8px;
+    font-size:10px;letter-spacing:.1em;color:var(--muted);
+    pointer-events:none;opacity:.75;
+  }
+
+  /* ---------- readout table ---------- */
+  .readout{width:100%;border-collapse:collapse;font-size:11.5px}
+  .readout caption{
+    text-align:left;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--muted);padding:9px 11px 6px;
+  }
+  .readout th,.readout td{
+    padding:4px 11px;border-top:1px solid rgba(122,183,232,.12);
+    text-align:right;font-weight:400;font-variant-numeric:tabular-nums;
+  }
+  .readout th{text-align:left;color:var(--muted);letter-spacing:.04em}
+  .readout td{color:var(--chalk)}
+  .readout td.v2{color:var(--amber)}
+  .readout tr:first-child th,.readout tr:first-child td{border-top:none}
+  .readout .hd th,.readout .hd td{
+    font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+    border-top:1px solid var(--line);padding-top:7px;
+  }
+
+  /* ---------- charts ---------- */
+  .charts{display:grid;gap:14px;margin-top:14px}
+  @media(min-width:640px){.charts{grid-template-columns:1fr 1fr}}
+  .chart-head{
+    display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+    padding:9px 11px 7px;
+  }
+  .chart-title{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+  .chart-val{font-size:11px;color:var(--chalk);font-variant-numeric:tabular-nums}
+  .chart canvas{display:block;width:100%;height:auto}
+
+  /* ---------- controls ---------- */
+  .controls{padding:4px 0 12px}
+  .group{border-top:1px solid var(--line);padding:11px 13px 3px}
+  .group:first-child{border-top:none}
+  .group-title{
+    font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 9px;
+    display:flex;justify-content:space-between;
+  }
+  .group-title .tag{color:var(--cyan)}
+
+  .field{margin-bottom:13px}
+  .field-row{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:5px;gap:8px;
+  }
+  .field label{font-size:11px;color:var(--chalk);letter-spacing:.02em}
+  .field .num{
+    font-size:11px;color:var(--cyan);font-variant-numeric:tabular-nums;
+    background:rgba(111,211,255,.08);border:1px solid rgba(111,211,255,.18);
+    border-radius:2px;padding:1px 6px;min-width:62px;text-align:right;
+  }
+  .field.p2 .num{color:var(--amber);background:rgba(255,158,77,.08);border-color:rgba(255,158,77,.2)}
+
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;
+    width:100%;height:26px;background:transparent;margin:0;display:block;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:2px;background:var(--ink-3);border-radius:2px;
+  }
+  input[type=range]::-moz-range-track{height:2px;background:var(--ink-3);border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:24px;height:24px;margin-top:-11px;border-radius:50%;
+    background:var(--ink);border:2px solid var(--cyan);
+    box-shadow:0 0 0 1px rgba(7,20,38,.9);cursor:grab;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:22px;height:22px;border-radius:50%;
+    background:var(--ink);border:2px solid var(--cyan);cursor:grab;
+  }
+  .field.p2 input[type=range]::-webkit-slider-thumb{border-color:var(--amber)}
+  .field.p2 input[type=range]::-moz-range-thumb{border-color:var(--amber)}
+  input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid var(--chalk);outline-offset:2px}
+
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 13px 13px}
+  .btns.three{grid-template-columns:1fr 1fr 1fr}
+  button{
+    font-family:var(--mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--chalk);background:var(--ink-2);
+    border:1px solid var(--line);border-radius:2px;
+    padding:11px 6px;min-height:44px;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    transition:background .12s,border-color .12s,color .12s;
+  }
+  button:hover{background:var(--ink-3);border-color:var(--grid-strong)}
+  button:active{transform:translateY(1px)}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  button.primary{background:rgba(111,211,255,.12);border-color:rgba(111,211,255,.4);color:var(--cyan)}
+  button.on{background:rgba(111,211,255,.14);border-color:var(--cyan);color:var(--cyan)}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:13px}
+  .seg button{border-radius:0;border-right-width:0;font-size:10px;letter-spacing:.08em;min-height:38px}
+  .seg button:first-child{border-radius:2px 0 0 2px}
+  .seg button:last-child{border-radius:0 2px 2px 0;border-right-width:1px}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px;padding:0 13px 13px}
+  .presets button{
+    flex:1 1 auto;min-height:38px;padding:8px 9px;font-size:10px;letter-spacing:.06em;
+    text-transform:none;color:var(--muted);
+  }
+  .presets button:hover{color:var(--chalk)}
+
+  footer{
+    margin-top:18px;padding-top:10px;border-top:1px solid var(--line);
+    font-size:10px;letter-spacing:.1em;color:var(--muted);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    *{transition:none!important;animation:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Chaotic dynamics · sensitive dependence on initial conditions</p>
+      <h1>Double<br><span class="thin">Pendulum</span></h1>
+    </div>
+    <div class="stamp">
+      Integrator <b>RK4</b><br>
+      Substep <b>1/480 s</b><br>
+      Frame-rate independent
+    </div>
+  </header>
+
+  <div class="main">
+
+    <!-- ============ LEFT: stage + charts ============ -->
+    <div class="stage-col">
+      <div class="panel stage">
+        <canvas id="stage"></canvas>
+        <div class="hud"><span id="hudTime">t 0.00 s</span> · <span class="fps" id="hudFps">— fps</span></div>
+        <div class="hint">drag a bob to reposition</div>
+      </div>
+
+      <div class="charts">
+        <div class="panel chart">
+          <div class="chart-head">
+            <span class="chart-title">Phase portrait θ₂ / ω₂</span>
+            <span class="chart-val" id="phaseVal">—</span>
+          </div>
+          <canvas id="phase"></canvas>
+        </div>
+        <div class="panel chart">
+          <div class="chart-head">
+            <span class="chart-title">Twin separation log₁₀ m</span>
+            <span class="chart-val" id="sepVal">twin off</span>
+          </div>
+          <canvas id="sep"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ RIGHT: readout + controls ============ -->
+    <div>
+      <div class="panel">
+        <table class="readout">
+          <caption>Live state</caption>
+          <tbody>
+            <tr class="hd"><th>Quantity</th><td>Upper</td><td class="v2">Lower</td></tr>
+            <tr><th>Angle θ (°)</th><td id="rT1">—</td><td class="v2" id="rT2">—</td></tr>
+            <tr><th>Ang. vel ω (rad/s)</th><td id="rW1">—</td><td class="v2" id="rW2">—</td></tr>
+            <tr><th>Speed (m/s)</th><td id="rV1">—</td><td class="v2" id="rV2">—</td></tr>
+            <tr class="hd"><th>Energy</th><td colspan="2">Joules</td></tr>
+            <tr><th>Kinetic</th><td colspan="2" id="rKE">—</td></tr>
+            <tr><th>Potential</th><td colspan="2" id="rPE">—</td></tr>
+            <tr><th>Total</th><td colspan="2" id="rE">—</td></tr>
+            <tr><th>Drift from t₀</th><td colspan="2" id="rDrift">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel controls" style="margin-top:14px">
+
+        <div class="group">
+          <p class="group-title"><span>Upper arm</span><span class="tag">1</span></p>
+          <div class="field">
+            <div class="field-row"><label for="L1">Length</label><span class="num" id="vL1"></span></div>
+            <input type="range" id="L1" min="0.3" max="2" step="0.01" value="1">
+          </div>
+          <div class="field">
+            <div class="field-row"><label for="M1">Mass</label><span class="num" id="vM1"></span></div>
+            <input type="range" id="M1" min="0.2" max="5" step="0.05" value="1">
+          </div>
+          <div class="field">
+            <div class="field-row"><label for="A1">Start angle</label><span class="num" id="vA1"></span></div>
+            <input type="range" id="A1" min="-180" max="180" step="1" value="120">
+          </div>
+        </div>
+
+        <div class="group">
+          <p class="group-title"><span>Lower arm</span><span class="tag" style="color:var(--amber)">2</span></p>
+          <div class="field p2">
+            <div class="field-row"><label for="L2">Length</label><span class="num" id="vL2"></span></div>
+            <input type="range" id="L2" min="0.3" max="2" step="0.01" value="1">
+          </div>
+          <div class="field p2">
+            <div class="field-row"><label for="M2">Mass</label><span class="num" id="vM2"></span></div>
+            <input type="range" id="M2" min="0.2" max="5" step="0.05" value="1">
+          </div>
+          <div class="field p2">
+            <div class="field-row"><label for="A2">Start angle</label><span class="num" id="vA2"></span></div>
+            <input type="range" id="A2" min="-180" max="180" step="1" value="-10">
+          </div>
+        </div>
+
+        <div class="group">
+          <p class="group-title"><span>Environment</span></p>
+          <div class="field">
+            <div class="field-row"><label for="G">Gravity</label><span class="num" id="vG"></span></div>
+            <input type="range" id="G" min="0" max="25" step="0.1" value="9.81">
+          </div>
+          <div class="field">
+            <div class="field-row"><label for="D">Damping</label><span class="num" id="vD"></span></div>
+            <input type="range" id="D" min="0" max="0.5" step="0.005" value="0">
+          </div>
+          <div class="field">
+            <div class="field-row"><label for="S">Time scale</label><span class="num" id="vS"></span></div>
+            <input type="range" id="S" min="0.1" max="3" step="0.05" value="1">
+          </div>
+        </div>
+
+        <div class="group">
+          <p class="group-title"><span>Trail</span></p>
+          <div class="seg" role="group" aria-label="Trail mode">
+            <button type="button" data-trail="off">Off</button>
+            <button type="button" data-trail="fade">Fade</button>
+            <button type="button" data-trail="keep" class="on">Keep</button>
+          </div>
+          <div class="field">
+            <div class="field-row"><label for="W">Trail width</label><span class="num" id="vW"></span></div>
+            <input type="range" id="W" min="0.5" max="4" step="0.1" value="1.6">
+          </div>
+        </div>
+
+        <div class="btns three">
+          <button type="button" id="btnTwin">Twin</button>
+          <button type="button" id="btnClear">Clear</button>
+          <button type="button" id="btnPause" class="primary">Pause</button>
+        </div>
+        <div class="btns">
+          <button type="button" id="btnReset">Reset</button>
+          <button type="button" id="btnRandom">Randomize</button>
+        </div>
+
+        <div class="group"><p class="group-title"><span>Presets</span></p></div>
+        <div class="presets">
+          <button type="button" data-preset="classic">Classic chaos</button>
+          <button type="button" data-preset="vertical">Near-vertical</button>
+          <button type="button" data-preset="gentle">Gentle swing</button>
+          <button type="button" data-preset="heavy">Heavy tip</button>
+          <button type="button" data-preset="moon">Lunar g</button>
+          <button type="button" data-preset="flower">Flower</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Equations of motion: Lagrangian, rigid massless rods, point masses</span>
+    <span>Twin offset 1×10⁻³ rad</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ============================================================
+   Elements
+   ============================================================ */
+const stage    = document.getElementById('stage');
+const sctx     = stage.getContext('2d');
+const phaseCv  = document.getElementById('phase');
+const pctx     = phaseCv.getContext('2d');
+const sepCv    = document.getElementById('sep');
+const spctx    = sepCv.getContext('2d');
+
+/* Offscreen persistent trail layer — this is the performance trick.
+   Old version redrew ~300 stored points every frame (O(n) per frame).
+   Now we stamp only the 1–8 NEW segments onto a bitmap and blit it: O(1). */
+const trailCv  = document.createElement('canvas');
+const tctx     = trailCv.getContext('2d');
+
+const $ = id => document.getElementById(id);
+const dpr = () => Math.min(window.devicePixelRatio || 1, 2);
+
+/* ============================================================
+   Parameters + state
+   ============================================================ */
+const P = {L1:1, L2:1, m1:1, m2:1, a1:120, a2:-10, g:9.81, damp:0, speed:1, tw:1.6};
+let trailMode = 'keep';
+let twinOn = false;
+let paused = false;
+
+// state vector: [θ1, ω1, θ2, ω2]
+let S = [0,0,0,0];
+let T = [0,0,0,0];        // twin
+let simTime = 0, E0 = 0;
+
+const DT = 1/480;         // fixed physics substep (s)
+const MAX_SUB = 40;       // clamp after tab-switch / slow frame
+
+/* ============================================================
+   Physics — RK4 over the standard double-pendulum ODEs
+   (old build used forward Euler, which bled energy badly)
+   ============================================================ */
+function deriv(s){
+  const [t1,w1,t2,w2] = s;
+  const {L1,L2,m1,m2,g,damp} = P;
+  const d  = t1 - t2;
+  const sd = Math.sin(d), cd = Math.cos(d);
+  const den = 2*m1 + m2 - m2*Math.cos(2*d);
+
+  const a1 = (-g*(2*m1+m2)*Math.sin(t1)
+            - m2*g*Math.sin(t1-2*t2)
+            - 2*sd*m2*(w2*w2*L2 + w1*w1*L1*cd)) / (L1*den) - damp*w1;
+
+  const a2 = (2*sd*( w1*w1*L1*(m1+m2)
+            + g*(m1+m2)*Math.cos(t1)
+            + w2*w2*L2*m2*cd )) / (L2*den) - damp*w2;
+
+  return [w1, a1, w2, a2];
+}
+const addv = (s,k,h) => [s[0]+k[0]*h, s[1]+k[1]*h, s[2]+k[2]*h, s[3]+k[3]*h];
+
+function rk4(s,h){
+  const k1 = deriv(s);
+  const k2 = deriv(addv(s,k1,h/2));
+  const k3 = deriv(addv(s,k2,h/2));
+  const k4 = deriv(addv(s,k3,h));
+  return [
+    s[0] + h/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]),
+    s[1] + h/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]),
+    s[2] + h/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2]),
+    s[3] + h/6*(k1[3]+2*k2[3]+2*k3[3]+k4[3])
+  ];
+}
+
+function energy(s){
+  const [t1,w1,t2,w2] = s, {L1,L2,m1,m2,g} = P;
+  const v1sq = L1*L1*w1*w1;
+  const v2sq = L1*L1*w1*w1 + L2*L2*w2*w2 + 2*L1*L2*w1*w2*Math.cos(t1-t2);
+  const y1 = -L1*Math.cos(t1);
+  const y2 = y1 - L2*Math.cos(t2);
+  const KE = .5*m1*v1sq + .5*m2*v2sq;
+  const PE = m1*g*y1 + m2*g*y2;
+  return {KE, PE, E:KE+PE};
+}
+const bobs = s => {
+  const x1 = P.L1*Math.sin(s[0]), y1 = -P.L1*Math.cos(s[0]);
+  return {x1, y1, x2: x1 + P.L2*Math.sin(s[2]), y2: y1 - P.L2*Math.cos(s[2])};
+};
+
+/* ============================================================
+   Canvas sizing (device-pixel aware, ResizeObserver driven)
+   ============================================================ */
+let W=0, H=0, ox=0, oy=0, scale=100;
+
+function sizeCanvas(cv, ctx, cssW, cssH){
+  const r = dpr();
+  cv.width  = Math.round(cssW*r);
+  cv.height = Math.round(cssH*r);
+  cv.style.height = cssH + 'px';
+  ctx.setTransform(r,0,0,r,0,0);
+}
+
+function layout(){
+  const cssW = stage.parentElement.clientWidth;
+  if(!cssW) return;
+  const aspect = cssW < 640 ? 1.0 : 0.72;   // taller frame on phones
+  const cssH = Math.max(300, Math.min(Math.round(cssW*aspect), window.innerHeight*0.68));
+  if(cssW === W && cssH === H && lastW === cssW) return;   // idempotent: no DOM writes
+  lastW = cssW;
+  W = cssW; H = cssH;
+  sizeCanvas(stage, sctx, cssW, cssH);
+  sizeCanvas(trailCv, tctx, cssW, cssH);
+  ox = cssW/2; oy = cssH*0.34;
+  rescale();
+  lastTrail = lastTwinTrail = null;   // canvas resize wipes the bitmap; drop the stale anchor
+
+  const cw = phaseCv.parentElement.clientWidth;
+  sizeCanvas(phaseCv, pctx, cw, 168);
+  sizeCanvas(sepCv,  spctx, cw, 168);
+  clearPhase(); drawSep();
+}
+function rescale(){
+  const total = P.L1 + P.L2;
+  scale = Math.min(W*0.44, H*0.58) / total;
+  lastTrail = lastTwinTrail = null;
+}
+/* ResizeObserver must not mutate layout inside its own callback — that re-enters the
+   observer in the same frame and the browser reports "loop completed with undelivered
+   notifications". Bail on no-op widths, then defer the real work to the next frame. */
+let pendingLayout = false, lastW = -1;
+function scheduleLayout(force){
+  if(pendingLayout) return;
+  pendingLayout = true;
+  requestAnimationFrame(() => { pendingLayout = false; if(force) lastW = -1; layout(); });
+}
+const ro = new ResizeObserver(entries => {
+  const w = Math.round(entries[0].contentRect.width);
+  if(w === 0 || w === lastW) return;   // nothing actually changed
+  lastW = w;
+  scheduleLayout(false);
+});
+ro.observe(document.querySelector('.stage-col'));
+window.addEventListener('orientationchange', () => scheduleLayout(true));
+window.addEventListener('resize', () => scheduleLayout(true));
+
+/* ============================================================
+   Trail: colour by tip speed (cool → hot)
+   ============================================================ */
+const STOPS = [[111,211,255],[231,241,251],[255,158,77],[255,107,138]];
+function speedColor(v){
+  const t = Math.max(0, Math.min(1, v/9)) * (STOPS.length-1);
+  const i = Math.min(STOPS.length-2, Math.floor(t)), f = t-i;
+  const a = STOPS[i], b = STOPS[i+1];
+  return `rgb(${a[0]+(b[0]-a[0])*f|0},${a[1]+(b[1]-a[1])*f|0},${a[2]+(b[2]-a[2])*f|0})`;
+}
+let lastTrail = null, lastTwinTrail = null, subCount = 0;
+
+function stampTrail(x,y,v){
+  if(trailMode === 'off'){ lastTrail = [x,y]; return; }
+  if(lastTrail){
+    tctx.strokeStyle = speedColor(v);
+    tctx.lineWidth = P.tw;
+    tctx.lineCap = 'round';
+    tctx.beginPath();
+    tctx.moveTo(lastTrail[0], lastTrail[1]);
+    tctx.lineTo(x, y);
+    tctx.stroke();
+  }
+  lastTrail = [x,y];
+}
+function stampTwin(x,y){
+  if(trailMode === 'off' || !twinOn){ lastTwinTrail = [x,y]; return; }
+  if(lastTwinTrail){
+    tctx.strokeStyle = 'rgba(255,107,138,.55)';
+    tctx.lineWidth = Math.max(0.6, P.tw*0.7);
+    tctx.beginPath();
+    tctx.moveTo(lastTwinTrail[0], lastTwinTrail[1]);
+    tctx.lineTo(x, y);
+    tctx.stroke();
+  }
+  lastTwinTrail = [x,y];
+}
+function clearTrail(){
+  tctx.save(); tctx.setTransform(1,0,0,1,0,0);
+  tctx.clearRect(0,0,trailCv.width,trailCv.height); tctx.restore();
+  lastTrail = lastTwinTrail = null;
+}
+function fadeTrail(){
+  tctx.save();
+  tctx.globalCompositeOperation = 'destination-out';
+  tctx.fillStyle = 'rgba(0,0,0,0.035)';
+  tctx.fillRect(0,0,W,H);
+  tctx.restore();
+}
+
+/* ============================================================
+   Charts
+   ============================================================ */
+function clearPhase(){
+  const w = phaseCv.clientWidth, h = 168;
+  pctx.clearRect(0,0,w,h);
+  pctx.strokeStyle = 'rgba(122,183,232,.15)'; pctx.lineWidth = 1;
+  for(let i=1;i<4;i++){
+    pctx.beginPath(); pctx.moveTo(w*i/4,0); pctx.lineTo(w*i/4,h); pctx.stroke();
+    pctx.beginPath(); pctx.moveTo(0,h*i/4); pctx.lineTo(w,h*i/4); pctx.stroke();
+  }
+  pctx.strokeStyle = 'rgba(122,183,232,.3)';
+  pctx.beginPath(); pctx.moveTo(w/2,0); pctx.lineTo(w/2,h); pctx.stroke();
+  pctx.beginPath(); pctx.moveTo(0,h/2); pctx.lineTo(w,h/2); pctx.stroke();
+  pctx.fillStyle = 'rgba(141,178,212,.75)'; pctx.font = '9px ' + getComputedStyle(document.body).fontFamily;
+  pctx.fillText('−π', 4, h-5); pctx.fillText('+π', w-16, h-5); pctx.fillText('ω +', 4, 11);
+}
+const wrapPi = a => { const m = ((a + Math.PI) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI); return m - Math.PI; };
+let phaseMax = 6;
+function plotPhase(){
+  const w = phaseCv.clientWidth, h = 168;
+  const x = (wrapPi(S[2]) + Math.PI)/(2*Math.PI) * w;
+  const aw = Math.abs(S[3]); if(aw > phaseMax) phaseMax = aw*1.15;
+  const y = h/2 - (S[3]/phaseMax) * (h/2 - 6);
+  pctx.fillStyle = speedColor(Math.abs(S[3])*P.L2);
+  pctx.fillRect(x-0.6, y-0.6, 1.6, 1.6);
+}
+
+const SEPN = 240;
+const sepBuf = new Array(SEPN).fill(null);
+let sepHead = 0;
+function pushSep(){
+  const a = bobs(S), b = bobs(T);
+  const d = Math.hypot(a.x2-b.x2, a.y2-b.y2);
+  sepBuf[sepHead] = Math.log10(Math.max(d, 1e-12));
+  sepHead = (sepHead+1) % SEPN;
+  return d;
+}
+function drawSep(){
+  const w = sepCv.clientWidth, h = 168;
+  spctx.clearRect(0,0,w,h);
+  spctx.strokeStyle = 'rgba(122,183,232,.15)'; spctx.lineWidth = 1;
+  spctx.fillStyle = 'rgba(141,178,212,.75)';
+  spctx.font = '9px ' + getComputedStyle(document.body).fontFamily;
+  // y axis: log10 from -12 (identical) to +0.5 (fully diverged)
+  const lo = -12, hi = 0.5;
+  const Y = v => h - ((v-lo)/(hi-lo))*(h-14) - 7;
+  for(let v=lo; v<=0; v+=3){
+    const y = Y(v);
+    spctx.beginPath(); spctx.moveTo(26,y); spctx.lineTo(w,y); spctx.stroke();
+    spctx.fillText(String(v), 3, y+3);
+  }
+  if(!twinOn){
+    spctx.fillStyle = 'rgba(141,178,212,.6)';
+    spctx.fillText('enable Twin to measure divergence', 34, h/2);
+    return;
+  }
+  spctx.strokeStyle = '#ff6b8a'; spctx.lineWidth = 1.4;
+  spctx.beginPath();
+  let started = false;
+  for(let i=0;i<SEPN;i++){
+    const v = sepBuf[(sepHead+i) % SEPN];
+    if(v === null) continue;
+    const x = 26 + (i/(SEPN-1))*(w-28);
+    const y = Y(Math.max(lo, Math.min(hi, v)));
+    started ? spctx.lineTo(x,y) : (spctx.moveTo(x,y), started = true);
+  }
+  spctx.stroke();
+}
+
+/* ============================================================
+   Scene render
+   ============================================================ */
+function drawArm(ctx,a,color,lw,dash){
+  ctx.setLineDash(dash||[]);
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(ox,oy);
+  ctx.lineTo(ox+a.x1*scale, oy-a.y1*scale);
+  ctx.lineTo(ox+a.x2*scale, oy-a.y2*scale);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+function bobRadius(m){ return 5 + Math.sqrt(m)*4.5; }
+
+function render(){
+  sctx.clearRect(0,0,W,H);
+
+  // faint reach circle for the outer bob
+  sctx.strokeStyle = 'rgba(122,183,232,.12)'; sctx.lineWidth = 1;
+  sctx.setLineDash([2,5]);
+  sctx.beginPath(); sctx.arc(ox,oy,(P.L1+P.L2)*scale,0,Math.PI*2); sctx.stroke();
+  sctx.beginPath(); sctx.arc(ox,oy,P.L1*scale,0,Math.PI*2); sctx.stroke();
+  sctx.setLineDash([]);
+
+  sctx.drawImage(trailCv, 0, 0, W, H);
+
+  if(twinOn){
+    const t = bobs(T);
+    drawArm(sctx, t, 'rgba(255,107,138,.5)', 1.5, [4,4]);
+    sctx.fillStyle = 'rgba(255,107,138,.55)';
+    sctx.beginPath(); sctx.arc(ox+t.x2*scale, oy-t.y2*scale, bobRadius(P.m2)*0.7, 0, Math.PI*2); sctx.fill();
+  }
+
+  const a = bobs(S);
+  drawArm(sctx, a, '#cfe4f7', 2.5);
+
+  // pivot
+  sctx.fillStyle = '#0d2440'; sctx.strokeStyle = '#8db2d4'; sctx.lineWidth = 1.5;
+  sctx.beginPath(); sctx.arc(ox,oy,4,0,Math.PI*2); sctx.fill(); sctx.stroke();
+
+  // bobs
+  sctx.fillStyle = '#6fd3ff';
+  sctx.beginPath(); sctx.arc(ox+a.x1*scale, oy-a.y1*scale, bobRadius(P.m1), 0, Math.PI*2); sctx.fill();
+  sctx.fillStyle = '#ff9e4d';
+  sctx.beginPath(); sctx.arc(ox+a.x2*scale, oy-a.y2*scale, bobRadius(P.m2), 0, Math.PI*2); sctx.fill();
+}
+
+/* ============================================================
+   Loop
+   ============================================================ */
+let acc = 0, prev = performance.now(), fps = 60, uiClock = 0, sepClock = 0;
+
+function frame(now){
+  const raw = (now - prev)/1000; prev = now;
+  fps += ((1/Math.max(raw,1e-4)) - fps) * 0.08;
+  const dt = Math.min(raw, 0.05);
+
+  if(!paused && !dragging){
+    acc += dt * P.speed;
+    let n = 0;
+    while(acc >= DT && n < MAX_SUB){
+      S = rk4(S, DT);
+      if(twinOn) T = rk4(T, DT);
+      acc -= DT; n++; simTime += DT;
+
+      if(++subCount % 4 === 0){
+        const a = bobs(S);
+        const v = Math.hypot(
+          P.L1*S[1]*Math.cos(S[0]) + P.L2*S[3]*Math.cos(S[2]),
+          P.L1*S[1]*Math.sin(S[0]) + P.L2*S[3]*Math.sin(S[2])
+        );
+        stampTrail(ox+a.x2*scale, oy-a.y2*scale, v);
+        if(twinOn){ const t = bobs(T); stampTwin(ox+t.x2*scale, oy-t.y2*scale); }
+        plotPhase();
+      }
+    }
+    if(n >= MAX_SUB) acc = 0;
+    if(trailMode === 'fade') fadeTrail();
+  }
+
+  render();
+
+  uiClock += dt;
+  if(uiClock > 0.1){ uiClock = 0; updateReadout(); }
+  sepClock += dt;
+  if(sepClock > 0.08){ sepClock = 0; if(!paused && !dragging) pushSep(); drawSep(); }
+
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   Readout
+   ============================================================ */
+const deg = r => (r*180/Math.PI);
+const fmt = (n,d=2) => (n>=0?' ':'') + n.toFixed(d);
+function updateReadout(){
+  const {KE,PE,E} = energy(S);
+  $('rT1').textContent = fmt(wrapPi(S[0])*180/Math.PI, 1);
+  $('rT2').textContent = fmt(wrapPi(S[2])*180/Math.PI, 1);
+  $('rW1').textContent = fmt(S[1]);
+  $('rW2').textContent = fmt(S[3]);
+  $('rV1').textContent = fmt(Math.abs(P.L1*S[1]));
+  $('rV2').textContent = fmt(Math.hypot(
+    P.L1*S[1]*Math.cos(S[0]) + P.L2*S[3]*Math.cos(S[2]),
+    P.L1*S[1]*Math.sin(S[0]) + P.L2*S[3]*Math.sin(S[2])));
+  $('rKE').textContent = fmt(KE);
+  $('rPE').textContent = fmt(PE);
+  $('rE').textContent  = fmt(E);
+  const drift = E0 !== 0 ? (E - E0)/Math.abs(E0)*100 : 0;
+  $('rDrift').textContent = (P.damp>0 ? 'damped ' : '') + fmt(drift,4) + ' %';
+  $('hudTime').textContent = 't ' + simTime.toFixed(2) + ' s';
+  $('hudFps').textContent = Math.round(fps) + ' fps';
+  $('phaseVal').textContent = 'ω₂ ' + fmt(S[3]) + ' rad/s';
+  if(twinOn){
+    const a = bobs(S), b = bobs(T);
+    const d = Math.hypot(a.x2-b.x2, a.y2-b.y2);
+    $('sepVal').textContent = d < 0.001 ? d.toExponential(2)+' m' : d.toFixed(4)+' m';
+  } else $('sepVal').textContent = 'twin off';
+}
+
+/* ============================================================
+   Reset / presets / randomize
+   ============================================================ */
+function reset(keepTrail){
+  S = [P.a1*Math.PI/180, 0, P.a2*Math.PI/180, 0];
+  T = [S[0] + 1e-3, 0, S[2], 0];
+  simTime = 0; acc = 0; phaseMax = 6;
+  E0 = energy(S).E;
+  sepBuf.fill(null); sepHead = 0;
+  if(!keepTrail) clearTrail();
+  lastTrail = lastTwinTrail = null;
+  clearPhase(); updateReadout(); drawSep();
+}
+
+const PRESETS = {
+  classic:  {L1:1,   L2:1,   m1:1, m2:1,   a1:120, a2:-10, g:9.81, damp:0},
+  vertical: {L1:1,   L2:1,   m1:1, m2:1,   a1:179, a2:179, g:9.81, damp:0},
+  gentle:   {L1:1,   L2:.8,  m1:1, m2:.6,  a1:25,  a2:15,  g:9.81, damp:.02},
+  heavy:    {L1:1.2, L2:.7,  m1:.5,m2:4.5, a1:150, a2:0,   g:9.81, damp:0},
+  moon:     {L1:1,   L2:1,   m1:1, m2:1,   a1:135, a2:45,  g:1.62, damp:0},
+  flower:   {L1:.8,  L2:1.4, m1:3, m2:.4,  a1:90,  a2:90,  g:9.81, damp:0}
+};
+
+const SLIDERS = [
+  ['L1','L1', v=>v.toFixed(2)+' m'],
+  ['L2','L2', v=>v.toFixed(2)+' m'],
+  ['M1','m1', v=>v.toFixed(2)+' kg'],
+  ['M2','m2', v=>v.toFixed(2)+' kg'],
+  ['A1','a1', v=>v.toFixed(0)+' °'],
+  ['A2','a2', v=>v.toFixed(0)+' °'],
+  ['G','g',   v=>v.toFixed(2)+' m/s²'],
+  ['D','damp',v=>v===0?'none':v.toFixed(3)],
+  ['S','speed',v=>v.toFixed(2)+' ×'],
+  ['W','tw',  v=>v.toFixed(1)+' px']
+];
+
+function syncUI(){
+  for(const [id,key,f] of SLIDERS){
+    $(id).value = P[key];
+    $('v'+id).textContent = f(P[key]);
+  }
+}
+for(const [id,key,f] of SLIDERS){
+  $(id).addEventListener('input', e => {
+    P[key] = parseFloat(e.target.value);
+    $('v'+id).textContent = f(P[key]);
+    if(key==='L1'||key==='L2'){ rescale(); clearTrail(); }
+    if(key==='a1'||key==='a2') reset(false);
+    if(key==='L1'||key==='L2'||key==='m1'||key==='m2'||key==='g') E0 = energy(S).E;
+  });
+}
+
+document.querySelectorAll('[data-preset]').forEach(b => {
+  b.addEventListener('click', () => {
+    Object.assign(P, PRESETS[b.dataset.preset]);
+    syncUI(); rescale(); reset(false);
+  });
+});
+document.querySelectorAll('[data-trail]').forEach(b => {
+  b.addEventListener('click', () => {
+    trailMode = b.dataset.trail;
+    document.querySelectorAll('[data-trail]').forEach(x => x.classList.toggle('on', x===b));
+    if(trailMode === 'off') clearTrail();
+  });
+});
+
+$('btnPause').addEventListener('click', e => {
+  paused = !paused;
+  e.target.textContent = paused ? 'Resume' : 'Pause';
+  e.target.classList.toggle('primary', !paused);
+});
+$('btnReset').addEventListener('click', () => reset(false));
+$('btnClear').addEventListener('click', () => { clearTrail(); clearPhase(); });
+$('btnTwin').addEventListener('click', e => {
+  twinOn = !twinOn;
+  e.target.classList.toggle('on', twinOn);
+  T = [S[0]+1e-3, S[1], S[2], S[3]];
+  sepBuf.fill(null); sepHead = 0; lastTwinTrail = null;
+  drawSep();
+});
+$('btnRandom').addEventListener('click', () => {
+  P.a1 = Math.round((Math.random()*2-1)*180);
+  P.a2 = Math.round((Math.random()*2-1)*180);
+  P.L1 = +(0.5+Math.random()*1.2).toFixed(2);
+  P.L2 = +(0.5+Math.random()*1.2).toFixed(2);
+  P.m1 = +(0.4+Math.random()*3).toFixed(2);
+  P.m2 = +(0.4+Math.random()*3).toFixed(2);
+  syncUI(); rescale(); reset(false);
+});
+
+/* ============================================================
+   Drag a bob (pointer events — works with touch on iOS)
+   ============================================================ */
+let dragging = null;
+function localPt(e){
+  const r = stage.getBoundingClientRect();
+  return {x: e.clientX - r.left, y: e.clientY - r.top};
+}
+stage.addEventListener('pointerdown', e => {
+  const p = localPt(e), a = bobs(S);
+  const p1 = {x: ox+a.x1*scale, y: oy-a.y1*scale};
+  const p2 = {x: ox+a.x2*scale, y: oy-a.y2*scale};
+  const hit = r => 24 + r;
+  if(Math.hypot(p.x-p2.x, p.y-p2.y) < hit(bobRadius(P.m2))) dragging = 2;
+  else if(Math.hypot(p.x-p1.x, p.y-p1.y) < hit(bobRadius(P.m1))) dragging = 1;
+  if(dragging){
+    stage.setPointerCapture(e.pointerId);
+    stage.classList.add('grabbing');
+    e.preventDefault();
+  }
+});
+stage.addEventListener('pointermove', e => {
+  if(!dragging) return;
+  const p = localPt(e);
+  if(dragging === 1){
+    S[0] = Math.atan2(p.x-ox, oy-p.y);
+  } else {
+    const a = bobs(S);
+    S[2] = Math.atan2(p.x-(ox+a.x1*scale), (oy-a.y1*scale)-p.y);
+  }
+  S[1] = S[3] = 0;
+  T = [S[0]+1e-3, 0, S[2], 0];
+  lastTrail = lastTwinTrail = null;
+  E0 = energy(S).E;
+  updateReadout();
+});
+function endDrag(e){
+  if(!dragging) return;
+  dragging = null;
+  stage.classList.remove('grabbing');
+  try{ stage.releasePointerCapture(e.pointerId); }catch(_){}
+  P.a1 = +(S[0]*180/Math.PI).toFixed(0);
+  P.a2 = +(S[2]*180/Math.PI).toFixed(0);
+  syncUI();
+  sepBuf.fill(null); sepHead = 0;
+}
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', endDrag);
+
+/* keyboard */
+window.addEventListener('keydown', e => {
+  if(e.target.tagName === 'INPUT') return;
+  if(e.code === 'Space'){ e.preventDefault(); $('btnPause').click(); }
+  if(e.key === 'r' || e.key === 'R') reset(false);
+  if(e.key === 'c' || e.key === 'C') $('btnClear').click();
+  if(e.key === 't' || e.key === 'T') $('btnTwin').click();
+});
+
+/* stop iOS double-tap zoom on the canvas */
+stage.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
+
+/* ============================================================
+   Boot
+   ============================================================ */
+syncUI();
+layout();
+reset(false);
+requestAnimationFrame(t => { prev = t; requestAnimationFrame(frame); });
+})();
+</script>
+</body>
+</html>
