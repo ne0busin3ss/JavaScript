@@ -405,7 +405,7 @@ const MAX_SUB = 40;       // clamp after tab-switch / slow frame
 
 /* ============================================================
    Physics — RK4 over the standard double-pendulum ODEs
-   (old build used forward Euler, which bled energy badly)
+   (old build used forward Euler, which bled energy badly) Good to know. 
    ============================================================ */
 function deriv(s){
   const [t1,w1,t2,w2] = s;
