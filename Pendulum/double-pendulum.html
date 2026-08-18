@@ -472,9 +472,9 @@ function layout(){
   if(!cssW) return;
   const aspect = cssW < 640 ? 1.0 : 0.72;   // taller frame on phones
   const cssH = Math.max(300, Math.min(Math.round(cssW*aspect), window.innerHeight*0.68));
-  if(cssW === W && cssH === H && lastW === cssW) return;   // idempotent: no DOM writes
-  lastW = cssW;
-  W = cssW; H = cssH;
+  const r = dpr();                       // dragging to another monitor changes this, not the size
+  if(cssW === W && cssH === H && r === lastDpr) return;   // idempotent: no DOM writes
+  lastDpr = r; W = cssW; H = cssH;
   sizeCanvas(stage, sctx, cssW, cssH);
   sizeCanvas(trailCv, tctx, cssW, cssH);
   ox = cssW/2; oy = cssH*0.34;
@@ -493,22 +493,23 @@ function rescale(){
 }
 /* ResizeObserver must not mutate layout inside its own callback — that re-enters the
    observer in the same frame and the browser reports "loop completed with undelivered
-   notifications". Bail on no-op widths, then defer the real work to the next frame. */
-let pendingLayout = false, lastW = -1;
-function scheduleLayout(force){
+   notifications". Bail on no-op widths, then defer the real work to the next frame.
+   lastSeenW tracks the OBSERVED element; layout() guards on its own measurements. */
+let pendingLayout = false, lastSeenW = -1, lastDpr = 0;
+function scheduleLayout(){
   if(pendingLayout) return;
   pendingLayout = true;
-  requestAnimationFrame(() => { pendingLayout = false; if(force) lastW = -1; layout(); });
+  requestAnimationFrame(() => { pendingLayout = false; layout(); });
 }
 const ro = new ResizeObserver(entries => {
   const w = Math.round(entries[0].contentRect.width);
-  if(w === 0 || w === lastW) return;   // nothing actually changed
-  lastW = w;
-  scheduleLayout(false);
+  if(w === 0 || w === lastSeenW) return;   // nothing actually changed
+  lastSeenW = w;
+  scheduleLayout();
 });
 ro.observe(document.querySelector('.stage-col'));
-window.addEventListener('orientationchange', () => scheduleLayout(true));
-window.addEventListener('resize', () => scheduleLayout(true));
+window.addEventListener('orientationchange', scheduleLayout);
+window.addEventListener('resize', scheduleLayout);
 
 /* ============================================================
    Trail: colour by tip speed (cool → hot)
@@ -728,8 +729,8 @@ const deg = r => (r*180/Math.PI);
 const fmt = (n,d=2) => (n>=0?' ':'') + n.toFixed(d);
 function updateReadout(){
   const {KE,PE,E} = energy(S);
-  $('rT1').textContent = fmt(wrapPi(S[0])*180/Math.PI, 1);
-  $('rT2').textContent = fmt(wrapPi(S[2])*180/Math.PI, 1);
+  $('rT1').textContent = fmt(deg(wrapPi(S[0])), 1);
+  $('rT2').textContent = fmt(deg(wrapPi(S[2])), 1);
   $('rW1').textContent = fmt(S[1]);
   $('rW2').textContent = fmt(S[3]);
   $('rV1').textContent = fmt(Math.abs(P.L1*S[1]));
@@ -882,8 +883,8 @@ function endDrag(e){
   dragging = null;
   stage.classList.remove('grabbing');
   try{ stage.releasePointerCapture(e.pointerId); }catch(_){}
-  P.a1 = +(S[0]*180/Math.PI).toFixed(0);
-  P.a2 = +(S[2]*180/Math.PI).toFixed(0);
+  P.a1 = +deg(S[0]).toFixed(0);
+  P.a2 = +deg(S[2]).toFixed(0);
   syncUI();
   sepBuf.fill(null); sepHead = 0;
 }
