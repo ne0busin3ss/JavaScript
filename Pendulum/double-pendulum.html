@@ -71,7 +71,7 @@
   .main{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
   @media(min-width:920px){
     .main{grid-template-columns:minmax(0,1fr) 330px;align-items:start}
-    .stage-col{min-width:0}
+    .stage-col,.side-col{min-width:0}
   }
 
   .panel{
@@ -118,6 +118,7 @@
   /* ---------- charts ---------- */
   .charts{display:grid;gap:14px;margin-top:14px}
   @media(min-width:640px){.charts{grid-template-columns:1fr 1fr}}
+  @media(min-width:920px){.side-col .charts{grid-template-columns:1fr}}
   .chart-head{
     display:flex;justify-content:space-between;align-items:baseline;gap:8px;
     padding:9px 11px 7px;
@@ -126,10 +127,21 @@
   .chart-val{font-size:11px;color:var(--chalk);font-variant-numeric:tabular-nums}
   .chart canvas{display:block;width:100%;height:auto}
 
-  /* ---------- controls ---------- */
-  .controls{padding:4px 0 12px}
-  .group{border-top:1px solid var(--line);padding:11px 13px 3px}
-  .group:first-child{border-top:none}
+  /* ---------- controls (under the stage) ---------- */
+  .controls{margin-top:14px;padding:4px 0 12px}
+  .ctl-grid{
+    display:grid;gap:0 22px;padding:0 13px;
+    grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
+  }
+  .group{padding:11px 0 3px}
+  .actions{
+    display:grid;gap:7px;padding:10px 13px 12px;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    border-top:1px solid var(--line);
+  }
+  @media(max-width:560px){ .actions{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  .preset-row{border-top:1px solid var(--line);padding:11px 13px 0}
+  .preset-row .presets{padding:0}
   .group-title{
     font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
     color:var(--muted);margin:0 0 9px;
@@ -227,7 +239,7 @@
 
   <div class="main">
 
-    <!-- ============ LEFT: stage + charts ============ -->
+    <!-- ============ LEFT: stage + controls underneath ============ -->
     <div class="stage-col">
       <div class="panel stage">
         <canvas id="stage"></canvas>
@@ -235,26 +247,95 @@
         <div class="hint">drag a bob to reposition</div>
       </div>
 
-      <div class="charts">
-        <div class="panel chart">
-          <div class="chart-head">
-            <span class="chart-title">Phase portrait θ₂ / ω₂</span>
-            <span class="chart-val" id="phaseVal">—</span>
+      <div class="panel controls">
+
+        <div class="ctl-grid">
+          <div class="group">
+            <p class="group-title"><span>Upper arm</span><span class="tag">1</span></p>
+            <div class="field">
+              <div class="field-row"><label for="L1">Length</label><span class="num" id="vL1"></span></div>
+              <input type="range" id="L1" min="0.3" max="2" step="0.01" value="1">
+            </div>
+            <div class="field">
+              <div class="field-row"><label for="M1">Mass</label><span class="num" id="vM1"></span></div>
+              <input type="range" id="M1" min="0.2" max="5" step="0.05" value="1">
+            </div>
+            <div class="field">
+              <div class="field-row"><label for="A1">Start angle</label><span class="num" id="vA1"></span></div>
+              <input type="range" id="A1" min="-180" max="180" step="1" value="120">
+            </div>
           </div>
-          <canvas id="phase"></canvas>
+
+          <div class="group">
+            <p class="group-title"><span>Lower arm</span><span class="tag" style="color:var(--amber)">2</span></p>
+            <div class="field p2">
+              <div class="field-row"><label for="L2">Length</label><span class="num" id="vL2"></span></div>
+              <input type="range" id="L2" min="0.3" max="2" step="0.01" value="1">
+            </div>
+            <div class="field p2">
+              <div class="field-row"><label for="M2">Mass</label><span class="num" id="vM2"></span></div>
+              <input type="range" id="M2" min="0.2" max="5" step="0.05" value="1">
+            </div>
+            <div class="field p2">
+              <div class="field-row"><label for="A2">Start angle</label><span class="num" id="vA2"></span></div>
+              <input type="range" id="A2" min="-180" max="180" step="1" value="-10">
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="group-title"><span>Environment</span></p>
+            <div class="field">
+              <div class="field-row"><label for="G">Gravity</label><span class="num" id="vG"></span></div>
+              <input type="range" id="G" min="0" max="25" step="0.1" value="9.81">
+            </div>
+            <div class="field">
+              <div class="field-row"><label for="D">Damping</label><span class="num" id="vD"></span></div>
+              <input type="range" id="D" min="0" max="0.5" step="0.005" value="0">
+            </div>
+            <div class="field">
+              <div class="field-row"><label for="S">Time scale</label><span class="num" id="vS"></span></div>
+              <input type="range" id="S" min="0.1" max="3" step="0.05" value="1">
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="group-title"><span>Trail</span></p>
+            <div class="seg" role="group" aria-label="Trail mode">
+              <button type="button" data-trail="off">Off</button>
+              <button type="button" data-trail="fade">Fade</button>
+              <button type="button" data-trail="keep" class="on">Keep</button>
+            </div>
+            <div class="field">
+              <div class="field-row"><label for="W">Trail width</label><span class="num" id="vW"></span></div>
+              <input type="range" id="W" min="0.5" max="4" step="0.1" value="1.6">
+            </div>
+          </div>
         </div>
-        <div class="panel chart">
-          <div class="chart-head">
-            <span class="chart-title">Twin separation log₁₀ m</span>
-            <span class="chart-val" id="sepVal">twin off</span>
+
+        <div class="actions">
+          <button type="button" id="btnTwin">Twin</button>
+          <button type="button" id="btnClear">Clear</button>
+          <button type="button" id="btnPause" class="primary">Pause</button>
+          <button type="button" id="btnReset">Reset</button>
+          <button type="button" id="btnRandom">Randomize</button>
+        </div>
+
+        <div class="preset-row">
+          <p class="group-title preset-label"><span>Presets</span></p>
+          <div class="presets">
+            <button type="button" data-preset="classic">Classic chaos</button>
+            <button type="button" data-preset="vertical">Near-vertical</button>
+            <button type="button" data-preset="gentle">Gentle swing</button>
+            <button type="button" data-preset="heavy">Heavy tip</button>
+            <button type="button" data-preset="moon">Lunar g</button>
+            <button type="button" data-preset="flower">Flower</button>
           </div>
-          <canvas id="sep"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- ============ RIGHT: readout + controls ============ -->
-    <div>
+    <!-- ============ RIGHT: live readout + charts ============ -->
+    <div class="side-col">
       <div class="panel">
         <table class="readout">
           <caption>Live state</caption>
@@ -272,87 +353,20 @@
         </table>
       </div>
 
-      <div class="panel controls" style="margin-top:14px">
-
-        <div class="group">
-          <p class="group-title"><span>Upper arm</span><span class="tag">1</span></p>
-          <div class="field">
-            <div class="field-row"><label for="L1">Length</label><span class="num" id="vL1"></span></div>
-            <input type="range" id="L1" min="0.3" max="2" step="0.01" value="1">
+      <div class="charts">
+        <div class="panel chart">
+          <div class="chart-head">
+            <span class="chart-title">Phase portrait θ₂ / ω₂</span>
+            <span class="chart-val" id="phaseVal">—</span>
           </div>
-          <div class="field">
-            <div class="field-row"><label for="M1">Mass</label><span class="num" id="vM1"></span></div>
-            <input type="range" id="M1" min="0.2" max="5" step="0.05" value="1">
-          </div>
-          <div class="field">
-            <div class="field-row"><label for="A1">Start angle</label><span class="num" id="vA1"></span></div>
-            <input type="range" id="A1" min="-180" max="180" step="1" value="120">
-          </div>
+          <canvas id="phase"></canvas>
         </div>
-
-        <div class="group">
-          <p class="group-title"><span>Lower arm</span><span class="tag" style="color:var(--amber)">2</span></p>
-          <div class="field p2">
-            <div class="field-row"><label for="L2">Length</label><span class="num" id="vL2"></span></div>
-            <input type="range" id="L2" min="0.3" max="2" step="0.01" value="1">
+        <div class="panel chart">
+          <div class="chart-head">
+            <span class="chart-title">Twin separation log₁₀ m</span>
+            <span class="chart-val" id="sepVal">twin off</span>
           </div>
-          <div class="field p2">
-            <div class="field-row"><label for="M2">Mass</label><span class="num" id="vM2"></span></div>
-            <input type="range" id="M2" min="0.2" max="5" step="0.05" value="1">
-          </div>
-          <div class="field p2">
-            <div class="field-row"><label for="A2">Start angle</label><span class="num" id="vA2"></span></div>
-            <input type="range" id="A2" min="-180" max="180" step="1" value="-10">
-          </div>
-        </div>
-
-        <div class="group">
-          <p class="group-title"><span>Environment</span></p>
-          <div class="field">
-            <div class="field-row"><label for="G">Gravity</label><span class="num" id="vG"></span></div>
-            <input type="range" id="G" min="0" max="25" step="0.1" value="9.81">
-          </div>
-          <div class="field">
-            <div class="field-row"><label for="D">Damping</label><span class="num" id="vD"></span></div>
-            <input type="range" id="D" min="0" max="0.5" step="0.005" value="0">
-          </div>
-          <div class="field">
-            <div class="field-row"><label for="S">Time scale</label><span class="num" id="vS"></span></div>
-            <input type="range" id="S" min="0.1" max="3" step="0.05" value="1">
-          </div>
-        </div>
-
-        <div class="group">
-          <p class="group-title"><span>Trail</span></p>
-          <div class="seg" role="group" aria-label="Trail mode">
-            <button type="button" data-trail="off">Off</button>
-            <button type="button" data-trail="fade">Fade</button>
-            <button type="button" data-trail="keep" class="on">Keep</button>
-          </div>
-          <div class="field">
-            <div class="field-row"><label for="W">Trail width</label><span class="num" id="vW"></span></div>
-            <input type="range" id="W" min="0.5" max="4" step="0.1" value="1.6">
-          </div>
-        </div>
-
-        <div class="btns three">
-          <button type="button" id="btnTwin">Twin</button>
-          <button type="button" id="btnClear">Clear</button>
-          <button type="button" id="btnPause" class="primary">Pause</button>
-        </div>
-        <div class="btns">
-          <button type="button" id="btnReset">Reset</button>
-          <button type="button" id="btnRandom">Randomize</button>
-        </div>
-
-        <div class="group"><p class="group-title"><span>Presets</span></p></div>
-        <div class="presets">
-          <button type="button" data-preset="classic">Classic chaos</button>
-          <button type="button" data-preset="vertical">Near-vertical</button>
-          <button type="button" data-preset="gentle">Gentle swing</button>
-          <button type="button" data-preset="heavy">Heavy tip</button>
-          <button type="button" data-preset="moon">Lunar g</button>
-          <button type="button" data-preset="flower">Flower</button>
+          <canvas id="sep"></canvas>
         </div>
       </div>
     </div>
