@@ -484,14 +484,17 @@ function sizeCanvas(cv, ctx, cssW, cssH){
 function layout(){
   const cssW = stage.parentElement.clientWidth;
   if(!cssW) return;
-  const aspect = cssW < 640 ? 1.0 : 0.72;   // taller frame on phones
-  const cssH = Math.max(300, Math.min(Math.round(cssW*aspect), window.innerHeight*0.68));
+  /* The pendulum can point straight up as easily as straight down, so the frame must
+     hold a full circle of radius L1+L2 around the pivot. A near-square frame keeps that
+     circle large; the old 0.72 aspect forced a small scale or clipped the top. */
+  const aspect = cssW < 640 ? 1.0 : 0.9;
+  const cssH = Math.max(300, Math.min(Math.round(cssW*aspect), window.innerHeight*0.78));
   const r = dpr();                       // dragging to another monitor changes this, not the size
   if(cssW === W && cssH === H && r === lastDpr) return;   // idempotent: no DOM writes
   lastDpr = r; W = cssW; H = cssH;
   sizeCanvas(stage, sctx, cssW, cssH);
   sizeCanvas(trailCv, tctx, cssW, cssH);
-  ox = cssW/2; oy = cssH*0.34;
+  ox = cssW/2; oy = cssH/2;   // pivot at the centre: reach above equals reach below
   rescale();
   lastTrail = lastTwinTrail = null;   // canvas resize wipes the bitmap; drop the stale anchor
 
@@ -502,7 +505,10 @@ function layout(){
 }
 function rescale(){
   const total = P.L1 + P.L2;
-  scale = Math.min(W*0.44, H*0.58) / total;
+  /* Full reach (L1+L2) plus the largest bob radius must fit in the shorter half-axis
+     from the centred pivot, in every direction, with a small margin. */
+  const margin = Math.max(bobRadius(P.m1), bobRadius(P.m2)) + 6;
+  scale = (Math.min(W, H)/2 - margin) / total;
   lastTrail = lastTwinTrail = null;
 }
 /* ResizeObserver must not mutate layout inside its own callback — that re-enters the
@@ -812,7 +818,7 @@ for(const [id,key,f] of SLIDERS){
   $(id).addEventListener('input', e => {
     P[key] = parseFloat(e.target.value);
     $('v'+id).textContent = f(P[key]);
-    if(key==='L1'||key==='L2'){ rescale(); clearTrail(); }
+    if(key==='L1'||key==='L2'||key==='m1'||key==='m2'){ rescale(); clearTrail(); }   // bob radius feeds the fit margin
     if(key==='a1'||key==='a2') reset(false);
     if(key==='L1'||key==='L2'||key==='m1'||key==='m2'||key==='g') E0 = energy(S).E;
   });
